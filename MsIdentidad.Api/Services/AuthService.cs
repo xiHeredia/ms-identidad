@@ -105,6 +105,105 @@ public class AuthService
         return usuarios.Select(ToUsuarioResponse).ToList();
     }
 
+    public async Task<int> CrearUsuarioAsync(CrearUsuarioRequest request, CancellationToken cancellationToken)
+    {
+        ValidateCredentials(request.Login, request.Password);
+
+        var login = request.Login.Trim();
+        var exists = await _context.Usuarios.AnyAsync(
+            x => x.UsuLogin == login && x.UsuEstado == "A",
+            cancellationToken);
+
+        if (exists)
+            throw new ValidationException("El usuario ya existe.");
+
+        var clienteRole = await _context.Roles.FirstOrDefaultAsync(
+            x => x.RolDescripcion == "CLIENTE" && x.RolEstado == "A",
+            cancellationToken);
+
+        clienteRole ??= new RolEntity
+        {
+            RolGuid = Guid.NewGuid(),
+            RolDescripcion = "CLIENTE",
+            RolFechaIngreso = DateTimeOffset.UtcNow,
+            RolUsuarioIngreso = "api",
+            RolIpIngreso = "127.0.0.1",
+            RolEstado = "A"
+        };
+
+        var usuario = new UsuarioEntity
+        {
+            UsuGuid = Guid.NewGuid(),
+            UsuLogin = login,
+            UsuPasswordHash = request.Password,
+            UsuFechaRegistro = DateTimeOffset.UtcNow,
+            UsuUsuarioRegistro = "api",
+            UsuIpRegistro = "127.0.0.1",
+            UsuEstado = "A"
+        };
+
+        usuario.UsuarioRoles.Add(new UsuarioRolEntity
+        {
+            Rol = clienteRole,
+            UsuRolEstado = "A"
+        });
+
+        await _context.Usuarios.AddAsync(usuario, cancellationToken);
+        await _context.SaveChangesAsync(cancellationToken);
+
+        return usuario.UsuId;
+    }
+
+    public async Task<bool> ActualizarUsuarioAsync(int id, ActualizarUsuarioRequest request, CancellationToken cancellationToken)
+    {
+        ValidateCredentials(request.Login, request.Password);
+
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(
+            x => x.UsuId == id && x.UsuEstado == "A",
+            cancellationToken);
+
+        if (usuario is null)
+            throw new NotFoundException("No se encontro el usuario.");
+
+        var login = request.Login.Trim();
+        var exists = await _context.Usuarios.AnyAsync(
+            x => x.UsuId != id && x.UsuLogin == login && x.UsuEstado == "A",
+            cancellationToken);
+
+        if (exists)
+            throw new ValidationException("El usuario ya existe.");
+
+        usuario.UsuLogin = login;
+        usuario.UsuPasswordHash = request.Password;
+        usuario.UsuFechaMod = DateTimeOffset.UtcNow;
+        usuario.UsuUsuarioMod = "api";
+        usuario.UsuIpMod = "127.0.0.1";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> EliminarUsuarioAsync(int id, CancellationToken cancellationToken)
+    {
+        var usuario = await _context.Usuarios
+            .Include(x => x.UsuarioRoles.Where(ur => ur.UsuRolEstado == "A"))
+            .FirstOrDefaultAsync(x => x.UsuId == id && x.UsuEstado == "A", cancellationToken);
+
+        if (usuario is null)
+            throw new NotFoundException("No se encontro el usuario.");
+
+        usuario.UsuEstado = "I";
+        usuario.UsuFechaEliminacion = DateTimeOffset.UtcNow;
+        usuario.UsuUsuarioEliminacion = "api";
+        usuario.UsuIpEliminacion = "127.0.0.1";
+
+        foreach (var usuarioRol in usuario.UsuarioRoles)
+            usuarioRol.UsuRolEstado = "I";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
     public async Task<IReadOnlyList<RolResponse>> ListarRolesAsync(CancellationToken cancellationToken)
     {
         return await _context.Roles
@@ -147,6 +246,53 @@ public class AuthService
         await _context.SaveChangesAsync(cancellationToken);
 
         return role.RolId;
+    }
+
+    public async Task<bool> ActualizarRolAsync(int id, ActualizarRolRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.Descripcion))
+            throw new ValidationException("La descripcion del rol es obligatoria.");
+
+        var rol = await _context.Roles.FirstOrDefaultAsync(
+            x => x.RolId == id && x.RolEstado == "A",
+            cancellationToken);
+
+        if (rol is null)
+            throw new NotFoundException("No se encontro el rol.");
+
+        var descripcion = request.Descripcion.Trim().ToUpperInvariant();
+        var exists = await _context.Roles.AnyAsync(
+            x => x.RolId != id && x.RolDescripcion == descripcion && x.RolEstado == "A",
+            cancellationToken);
+
+        if (exists)
+            throw new ValidationException("El rol ya existe.");
+
+        rol.RolDescripcion = descripcion;
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
+    }
+
+    public async Task<bool> EliminarRolAsync(int id, CancellationToken cancellationToken)
+    {
+        var rol = await _context.Roles
+            .Include(x => x.UsuarioRoles.Where(ur => ur.UsuRolEstado == "A"))
+            .FirstOrDefaultAsync(x => x.RolId == id && x.RolEstado == "A", cancellationToken);
+
+        if (rol is null)
+            throw new NotFoundException("No se encontro el rol.");
+
+        rol.RolEstado = "I";
+        rol.RolFechaEliminacion = DateTimeOffset.UtcNow;
+        rol.RolUsuarioEliminacion = "api";
+        rol.RolIpEliminacion = "127.0.0.1";
+
+        foreach (var usuarioRol in rol.UsuarioRoles)
+            usuarioRol.UsuRolEstado = "I";
+
+        await _context.SaveChangesAsync(cancellationToken);
+        return true;
     }
 
     public async Task<IReadOnlyList<UsuarioRolResponse>> ListarUsuarioRolesAsync(int? usuarioId, CancellationToken cancellationToken)

@@ -31,4 +31,18 @@ public class RolesController : ControllerBase
         var id = await _authService.CrearRolAsync(request, cancellationToken);
         return Ok(ApiResponse<int>.Ok(id, "Rol creado correctamente."));
     }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Actualizar(int id, [FromBody] ActualizarRolRequest request, CancellationToken cancellationToken)
+    {
+        var ok = await _authService.ActualizarRolAsync(id, request, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Rol actualizado correctamente."));
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Eliminar(int id, CancellationToken cancellationToken)
+    {
+        var ok = await _authService.EliminarRolAsync(id, cancellationToken);
+        return Ok(ApiResponse<bool>.Ok(ok, "Rol eliminado correctamente."));
+    }
 }

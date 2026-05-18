@@ -32,6 +32,16 @@ public class UsuarioResponse
     public IReadOnlyCollection<string> Roles { get; set; } = Array.Empty<string>();
 }
 
+public class CrearUsuarioRequest
+{
+    public string Login { get; set; } = null!;
+    public string Password { get; set; } = null!;
+}
+
+public class ActualizarUsuarioRequest : CrearUsuarioRequest
+{
+}
+
 public class RolResponse
 {
     public int Id { get; set; }
@@ -59,4 +69,8 @@ public class CrearUsuarioRolRequest
 public class CrearRolRequest
 {
     public string Descripcion { get; set; } = null!;
+}
+
+public class ActualizarRolRequest : CrearRolRequest
+{
 }
