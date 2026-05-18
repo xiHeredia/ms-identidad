@@ -1,0 +1,11 @@
+{
+  "Version": 1,
+  "Hash": "TWih9V6qypsN1i6mr8svadkp6U0fTwfvNzgHWmB4gIg=",
+  "Source": "MsIdentidad.Api",
+  "BasePath": "_content/MsIdentidad.Api",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": []
+}
